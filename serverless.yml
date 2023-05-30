@@ -1,0 +1,63 @@
+service: aws-news
+frameworkVersion: '3'
+useDotenv: true
+
+plugins:
+  - serverless-esbuild
+
+provider:
+  name: aws
+  stage: dev
+  region: eu-west-1
+  profile: kendi-hesabim
+  tracing:
+    lambda: true
+  
+  runtime: nodejs18.x
+  memorySize: 512
+  logRetentionInDays: 14
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - 's3:*'
+          Resource: '*'
+
+package:
+  individually: true
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    exclude:
+        - aws-sdk
+    platform: 'node'
+    concurrency: 10
+    plugins: ./esbuild-plugins.js
+
+resources:
+  Resources:
+    bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: cihan-aws-news-bucket
+
+functions:
+  news-announcer:
+    handler: src/lambda.handler
+    timeout: 300
+    events:
+      - schedule: rate(1 day)
+    environment:
+      BUCKET: ${self:resources.Resources.bucket.Properties.BucketName}
+      TWITTER_APP_KEY: ${env:TWITTER_APP_KEY}
+      TWITTER_APP_SECRET: ${env:TWITTER_APP_SECRET}
+      TWITTER_ACCESS_TOKEN: ${env:TWITTER_ACCESS_TOKEN}
+      TWITTER_ACCESS_SECRET: ${env:TWITTER_ACCESS_SECRET}
+      TWITTER_BEARER_TOKEN: ${env:TWITTER_BEARER_TOKEN}
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      NODE_OPTIONS: '--enable-source-maps'
